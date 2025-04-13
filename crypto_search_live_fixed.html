@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>加密貨幣即時分析</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; background: #0f0f1a; color: #ffffff; padding: 20px; }
+        input, button {
+            padding: 12px;
+            font-size: 16px;
+            margin: 8px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #result {
+            margin-top: 30px;
+            font-size: 18px;
+            background: #1a1a2e;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        h1, h2, p {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>加密貨幣即時分析</h1>
+    <input type="text" id="coinInput" placeholder="輸入幣種縮寫（如：BTC、ETH、SUI）">
+    <button onclick="fetchCrypto()">查詢</button>
+    <div id="result">請輸入幣種並查詢</div>
+
+    <script>
+        let coinMap = {};
+        let currentCoinId = "bitcoin"; // 預設顯示 BTC
+
+        // 載入所有幣種 symbol 對應 ID
+        async function loadCoinList() {
+            const res = await fetch("https://api.coingecko.com/api/v3/coins/list");
+            const coins = await res.json();
+            coins.forEach(c => {
+                coinMap[c.symbol.toLowerCase()] = c.id;
+            });
+        }
+
+        // 主要查詢邏輯
+        async function fetchCrypto(isAuto = false) {
+            const input = document.getElementById("coinInput").value.trim().toLowerCase();
+            if (input && !isAuto) {
+                if (coinMap[input]) {
+                    currentCoinId = coinMap[input];
+                } else {
+                    document.getElementById("result").innerHTML = "<p style='color:red;'>找不到此幣種代號</p>";
+                    return;
+                }
+            }
+
+            const resultDiv = document.getElementById("result");
+            resultDiv.innerHTML = "讀取中...";
+
+            try {
+                const res = await fetch(`https://api.coingecko.com/api/v3/coins/${currentCoinId}`);
+                if (!res.ok) throw new Error("查詢失敗");
+
+                const data = await res.json();
+                const name = data.name;
+                const symbol = data.symbol.toUpperCase();
+                const price = data.market_data.current_price.usd;
+                const change = data.market_data.price_change_percentage_24h.toFixed(2);
+                const trend = change >= 0 ? "✅ 建議開多" : "❌ 建議開空";
+
+                resultDiv.innerHTML = `
+                    <h2>${name} (${symbol})</h2>
+                    <p>現價：$${price}</p>
+                    <p>24H 漲跌幅：${change}%</p>
+                    <p>${trend}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color:red;">${error.message}</p>`;
+            }
+        }
+
+        // 載入幣種映射並初始化
+        loadCoinList().then(() => {
+            fetchCrypto(); // 預設顯示 BTC
+            setInterval(() => fetchCrypto(true), 300000); // 每 5 分鐘更新
+        });
+    </script>
+</body>
+</html>
